@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="/favicon.png">
   <title>LyricView - Audio Lyrics Transcription</title>
   <style>
     * {
@@ -259,6 +260,76 @@
       border-color: #00ff88;
       color: #00ff88;
     }
+
+    /* Mobile responsive styles */
+    @media (max-width: 600px) {
+      body {
+        padding: 1rem;
+      }
+
+      h1 {
+        font-size: 2rem;
+      }
+
+      .subtitle {
+        font-size: 1rem;
+      }
+
+      .upload-section {
+        padding: 2rem 1rem;
+      }
+
+      .upload-icon {
+        font-size: 2.5rem;
+      }
+
+      .upload-text {
+        font-size: 1rem;
+      }
+
+      .btn {
+        width: 100%;
+        padding: 1rem;
+      }
+
+      .results-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+      }
+
+      .results-header > div {
+        width: 100%;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+      }
+
+      .copy-btn {
+        flex: 1;
+        justify-content: center;
+        min-width: 120px;
+      }
+
+      .tabs {
+        width: 100%;
+      }
+
+      .tab {
+        flex: 1;
+        text-align: center;
+      }
+
+      .lyrics-box {
+        padding: 1rem;
+        font-size: 1rem;
+        max-height: 400px;
+      }
+
+      .word-count {
+        width: 100%;
+        margin-bottom: 0.5rem;
+      }
+    }
   </style>
 </head>
 <body>
@@ -328,7 +399,11 @@
     let selectedFile = null;
 
     // Drag and drop handlers
-    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('click', (e) => {
+      // Prevent triggering file picker when clicking buttons inside dropZone
+      if (e.target.tagName === 'BUTTON') return;
+      fileInput.click();
+    });
 
     dropZone.addEventListener('dragover', (e) => {
       e.preventDefault();
