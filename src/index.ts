@@ -69,8 +69,11 @@ async function handleTranscribe(request: Request, env: Env): Promise<Response> {
 			audio: base64Audio,
 		}) as TranscriptionResult;
 
+		// Format lyrics for better readability
+		const formattedText = formatLyrics(result.text, result.vtt);
+
 		return new Response(JSON.stringify({
-			text: result.text,
+			text: formattedText,
 			vtt: result.vtt,
 			word_count: result.word_count,
 		}), {
@@ -92,4 +95,110 @@ function jsonError(message: string, status: number): Response {
 			'Content-Type': 'application/json',
 		},
 	});
+}
+
+function formatLyrics(text: string, vtt?: string): string {
+	if (!text) return text;
+
+	// Try to use VTT timing to detect natural breaks
+	if (vtt) {
+		const lines = parseVttToLines(vtt);
+		if (lines.length > 0) {
+			return formatWithTiming(lines);
+		}
+	}
+
+	// Fallback: format based on punctuation and patterns
+	return formatByPunctuation(text);
+}
+
+interface VttLine {
+	start: number;
+	end: number;
+	text: string;
+}
+
+function parseVttToLines(vtt: string): VttLine[] {
+	const lines: VttLine[] = [];
+	const regex = /(\d{2})\.(\d{3})\s*-->\s*(\d{2})\.(\d{3})\n(.+?)(?=\n\n|\n\d|$)/gs;
+
+	let match;
+	while ((match = regex.exec(vtt)) !== null) {
+		const startSec = parseInt(match[1]);
+		const startMs = parseInt(match[2]);
+		const endSec = parseInt(match[3]);
+		const endMs = parseInt(match[4]);
+		const text = match[5].trim();
+
+		lines.push({
+			start: startSec + startMs / 1000,
+			end: endSec + endMs / 1000,
+			text: text,
+		});
+	}
+
+	return lines;
+}
+
+function formatWithTiming(lines: VttLine[]): string {
+	const result: string[] = [];
+	let currentVerse: string[] = [];
+
+	for (let i = 0; i < lines.length; i++) {
+		currentVerse.push(lines[i].text);
+
+		// Check for pause before next line (indicates new line/verse)
+		if (i < lines.length - 1) {
+			const gap = lines[i + 1].start - lines[i].end;
+
+			if (gap > 1.5) {
+				// Long pause (>1.5s) = new verse/section
+				result.push(currentVerse.join('\n'));
+				result.push(''); // Empty line for verse break
+				currentVerse = [];
+			} else if (gap > 0.5) {
+				// Medium pause (>0.5s) = new line
+				result.push(currentVerse.join('\n'));
+				currentVerse = [];
+			}
+		}
+	}
+
+	// Add remaining verse
+	if (currentVerse.length > 0) {
+		result.push(currentVerse.join('\n'));
+	}
+
+	return result.join('\n').trim();
+}
+
+function formatByPunctuation(text: string): string {
+	// Split on sentence endings and add line breaks
+	let formatted = text
+		// Add line break after sentence endings
+		.replace(/([.!?])\s+/g, '$1\n')
+		// Add line break after commas followed by common lyric patterns
+		.replace(/,\s+(and|but|so|cause|because|when|if|I|you|we|they|oh|yeah|baby|now)\s/gi, ',\n$1 ')
+		// Add extra break for repeated patterns (likely chorus)
+		.replace(/(\n.+)\1/g, '$1\n$1');
+
+	// Group into verses (roughly every 4 lines)
+	const lines = formatted.split('\n').filter(l => l.trim());
+	const verses: string[] = [];
+	let currentVerse: string[] = [];
+
+	for (let i = 0; i < lines.length; i++) {
+		currentVerse.push(lines[i].trim());
+
+		if (currentVerse.length >= 4) {
+			verses.push(currentVerse.join('\n'));
+			currentVerse = [];
+		}
+	}
+
+	if (currentVerse.length > 0) {
+		verses.push(currentVerse.join('\n'));
+	}
+
+	return verses.join('\n\n');
 }
