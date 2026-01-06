@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LyricView - Audio Lyrics Transcription</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      color: #e4e4e4;
+      padding: 2rem;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      background: linear-gradient(90deg, #00d9ff, #00ff88);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      color: #888;
+      font-size: 1.1rem;
+    }
+
+    .upload-section {
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px dashed #444;
+      border-radius: 12px;
+      padding: 3rem 2rem;
+      text-align: center;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+
+    .upload-section:hover,
+    .upload-section.dragover {
+      border-color: #00d9ff;
+      background: rgba(0, 217, 255, 0.05);
+    }
+
+    .upload-section.disabled {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    .upload-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+
+    .upload-text {
+      font-size: 1.2rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .upload-hint {
+      color: #666;
+      font-size: 0.9rem;
+    }
+
+    #fileInput {
+      display: none;
+    }
+
+    .file-info {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: rgba(0, 217, 255, 0.1);
+      border-radius: 8px;
+      display: none;
+    }
+
+    .file-info.visible {
+      display: block;
+    }
+
+    .btn {
+      background: linear-gradient(90deg, #00d9ff, #00ff88);
+      color: #1a1a2e;
+      border: none;
+      padding: 1rem 2rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 1.5rem;
+      transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .results-section {
+      margin-top: 2rem;
+      display: none;
+    }
+
+    .results-section.visible {
+      display: block;
+    }
+
+    .results-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .results-header h2 {
+      font-size: 1.5rem;
+    }
+
+    .word-count {
+      color: #888;
+      font-size: 0.9rem;
+    }
+
+    .lyrics-box {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 2rem;
+      white-space: pre-wrap;
+      line-height: 1.8;
+      font-size: 1.1rem;
+      max-height: 500px;
+      overflow-y: auto;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 3rem;
+    }
+
+    .loading.visible {
+      display: block;
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid rgba(255, 255, 255, 0.1);
+      border-top-color: #00d9ff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 1rem;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .error {
+      background: rgba(255, 77, 77, 0.1);
+      border: 1px solid #ff4d4d;
+      color: #ff6b6b;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-top: 1rem;
+      display: none;
+    }
+
+    .error.visible {
+      display: block;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .tab {
+      padding: 0.5rem 1rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: none;
+      border-radius: 6px;
+      color: #888;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .tab.active {
+      background: rgba(0, 217, 255, 0.2);
+      color: #00d9ff;
+    }
+
+    .tab:hover:not(.active) {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .vtt-box {
+      display: none;
+      font-family: monospace;
+      font-size: 0.95rem;
+    }
+
+    .vtt-box.visible {
+      display: block;
+    }
+
+    .text-box {
+      display: block;
+    }
+
+    .text-box.hidden {
+      display: none;
+    }
+
+    .copy-btn {
+      background: rgba(255, 255, 255, 0.1);
+      color: #e4e4e4;
+      border: 1px solid #444;
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .copy-btn:hover {
+      background: rgba(0, 217, 255, 0.2);
+      border-color: #00d9ff;
+    }
+
+    .copy-btn.copied {
+      background: rgba(0, 255, 136, 0.2);
+      border-color: #00ff88;
+      color: #00ff88;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>LyricView</h1>
+      <p class="subtitle">Upload a song and get the lyrics transcribed instantly</p>
+    </header>
+
+    <div class="upload-section" id="dropZone">
+      <div class="upload-icon">🎵</div>
+      <p class="upload-text">Drop your audio file here or click to browse</p>
+      <p class="upload-hint">Supports MP3, WAV, M4A, OGG, FLAC (max 25MB)</p>
+      <input type="file" id="fileInput" accept="audio/*,.mp3,.m4a,.wav,.ogg,.flac,.aac,.wma,.opus,.webm,.mp4">
+
+      <div class="file-info" id="fileInfo">
+        <strong id="fileName"></strong>
+        <span id="fileSize"></span>
+      </div>
+
+      <button class="btn" id="transcribeBtn" disabled>Transcribe Lyrics</button>
+    </div>
+
+    <div class="error" id="errorBox"></div>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p>Transcribing your audio...</p>
+      <p class="upload-hint">This may take a moment depending on the file length</p>
+    </div>
+
+    <div class="results-section" id="results">
+      <div class="results-header">
+        <h2>Transcribed Lyrics</h2>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <span class="word-count" id="wordCount"></span>
+          <button class="copy-btn" id="copyBtn">Copy Lyrics</button>
+          <button class="copy-btn" id="downloadBtn">Download .txt</button>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" data-view="text">Plain Text</button>
+        <button class="tab" data-view="vtt">Timed (VTT)</button>
+      </div>
+
+      <div class="lyrics-box text-box" id="lyricsText"></div>
+      <div class="lyrics-box vtt-box" id="lyricsVtt"></div>
+    </div>
+  </div>
+
+  <script>
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const fileInfo = document.getElementById('fileInfo');
+    const fileName = document.getElementById('fileName');
+    const fileSize = document.getElementById('fileSize');
+    const transcribeBtn = document.getElementById('transcribeBtn');
+    const loading = document.getElementById('loading');
+    const results = document.getElementById('results');
+    const errorBox = document.getElementById('errorBox');
+    const lyricsText = document.getElementById('lyricsText');
+    const lyricsVtt = document.getElementById('lyricsVtt');
+    const wordCount = document.getElementById('wordCount');
+    const tabs = document.querySelectorAll('.tab');
+
+    let selectedFile = null;
+
+    // Drag and drop handlers
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        handleFile(files[0]);
+      }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        handleFile(e.target.files[0]);
+      }
+    });
+
+    function handleFile(file) {
+      const validExtensions = ['.mp3', '.m4a', '.wav', '.ogg', '.flac', '.aac', '.wma', '.opus', '.webm', '.mp4', '.mpeg', '.mpga'];
+      const fileName = file.name.toLowerCase();
+      const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
+      const hasValidMimeType = file.type.startsWith('audio/') || file.type.startsWith('video/') || file.type === 'application/octet-stream';
+
+      if (!hasValidExtension && !hasValidMimeType) {
+        showError('Please select an audio file (mp3, m4a, wav, ogg, flac, etc.)');
+        return;
+      }
+
+      if (file.size > 25 * 1024 * 1024) {
+        showError('File size must be less than 25MB');
+        return;
+      }
+
+      selectedFile = file;
+      fileName.textContent = file.name;
+      fileSize.textContent = ` (${formatSize(file.size)})`;
+      fileInfo.classList.add('visible');
+      transcribeBtn.disabled = false;
+      hideError();
+    }
+
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    transcribeBtn.addEventListener('click', async () => {
+      if (!selectedFile) return;
+
+      // Show loading, hide results
+      loading.classList.add('visible');
+      results.classList.remove('visible');
+      dropZone.classList.add('disabled');
+      transcribeBtn.disabled = true;
+      hideError();
+
+      try {
+        const formData = new FormData();
+        formData.append('audio', selectedFile);
+
+        const response = await fetch('/transcribe', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Transcription failed');
+        }
+
+        // Display results
+        lyricsText.textContent = data.text || 'No lyrics detected';
+        lyricsVtt.textContent = data.vtt || 'No timed data available';
+        wordCount.textContent = data.word_count ? `${data.word_count} words` : '';
+
+        results.classList.add('visible');
+      } catch (err) {
+        showError(err.message);
+      } finally {
+        loading.classList.remove('visible');
+        dropZone.classList.remove('disabled');
+        transcribeBtn.disabled = false;
+      }
+    });
+
+    // Tab switching
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+
+        const view = tab.dataset.view;
+        if (view === 'text') {
+          lyricsText.classList.remove('hidden');
+          lyricsVtt.classList.remove('visible');
+        } else {
+          lyricsText.classList.add('hidden');
+          lyricsVtt.classList.add('visible');
+        }
+      });
+    });
+
+    function showError(message) {
+      errorBox.textContent = message;
+      errorBox.classList.add('visible');
+    }
+
+    function hideError() {
+      errorBox.classList.remove('visible');
+    }
+
+    // Copy lyrics functionality
+    const copyBtn = document.getElementById('copyBtn');
+    copyBtn.addEventListener('click', async () => {
+      const activeTab = document.querySelector('.tab.active').dataset.view;
+      const textToCopy = activeTab === 'text' ? lyricsText.textContent : lyricsVtt.textContent;
+
+      try {
+        await navigator.clipboard.writeText(textToCopy);
+        copyBtn.textContent = 'Copied!';
+        copyBtn.classList.add('copied');
+        setTimeout(() => {
+          copyBtn.textContent = 'Copy Lyrics';
+          copyBtn.classList.remove('copied');
+        }, 2000);
+      } catch (err) {
+        showError('Failed to copy to clipboard');
+      }
+    });
+
+    // Download lyrics functionality
+    const downloadBtn = document.getElementById('downloadBtn');
+    downloadBtn.addEventListener('click', () => {
+      const activeTab = document.querySelector('.tab.active').dataset.view;
+      const textToDownload = activeTab === 'text' ? lyricsText.textContent : lyricsVtt.textContent;
+      const extension = activeTab === 'text' ? 'txt' : 'vtt';
+
+      const blob = new Blob([textToDownload], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `lyrics.${extension}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      downloadBtn.textContent = 'Downloaded!';
+      downloadBtn.classList.add('copied');
+      setTimeout(() => {
+        downloadBtn.textContent = 'Download .txt';
+        downloadBtn.classList.remove('copied');
+      }, 2000);
+    });
+  </script>
+</body>
+</html>
