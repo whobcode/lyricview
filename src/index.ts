@@ -120,19 +120,22 @@ interface VttLine {
 
 function parseVttToLines(vtt: string): VttLine[] {
 	const lines: VttLine[] = [];
-	const regex = /(\d{2})\.(\d{3})\s*-->\s*(\d{2})\.(\d{3})\n(.+?)(?=\n\n|\n\d|$)/gs;
+	// Match format: 00:08.340 --> 00:08.860 or 01:30.500 --> 01:31.000
+	const regex = /(\d{2}):(\d{2})\.(\d{3})\s*-->\s*(\d{2}):(\d{2})\.(\d{3})\n(.+?)(?=\n\n|\n\d|$)/gs;
 
 	let match;
 	while ((match = regex.exec(vtt)) !== null) {
-		const startSec = parseInt(match[1]);
-		const startMs = parseInt(match[2]);
-		const endSec = parseInt(match[3]);
-		const endMs = parseInt(match[4]);
-		const text = match[5].trim();
+		const startMin = parseInt(match[1]);
+		const startSec = parseInt(match[2]);
+		const startMs = parseInt(match[3]);
+		const endMin = parseInt(match[4]);
+		const endSec = parseInt(match[5]);
+		const endMs = parseInt(match[6]);
+		const text = match[7].trim();
 
 		lines.push({
-			start: startSec + startMs / 1000,
-			end: endSec + endMs / 1000,
+			start: startMin * 60 + startSec + startMs / 1000,
+			end: endMin * 60 + endSec + endMs / 1000,
 			text: text,
 		});
 	}
@@ -142,29 +145,59 @@ function parseVttToLines(vtt: string): VttLine[] {
 
 function formatWithTiming(lines: VttLine[]): string {
 	const result: string[] = [];
+	let currentLine: string[] = [];
 	let currentVerse: string[] = [];
+	const MAX_WORDS_PER_LINE = 10;
+	const MAX_LINES_PER_VERSE = 4;
 
 	for (let i = 0; i < lines.length; i++) {
-		currentVerse.push(lines[i].text);
+		currentLine.push(lines[i].text);
 
-		// Check for pause before next line (indicates new line/verse)
+		let shouldBreakLine = false;
+		let shouldBreakVerse = false;
+
+		// Check for pause before next word
 		if (i < lines.length - 1) {
 			const gap = lines[i + 1].start - lines[i].end;
 
-			if (gap > 1.5) {
-				// Long pause (>1.5s) = new verse/section
-				result.push(currentVerse.join('\n'));
-				result.push(''); // Empty line for verse break
-				currentVerse = [];
-			} else if (gap > 0.5) {
-				// Medium pause (>0.5s) = new line
-				result.push(currentVerse.join('\n'));
-				currentVerse = [];
+			if (gap > 0.8) {
+				// Long pause = new verse
+				shouldBreakVerse = true;
+				shouldBreakLine = true;
+			} else if (gap > 0.3) {
+				// Medium pause = new line
+				shouldBreakLine = true;
 			}
+		}
+
+		// Also break line if we hit max words
+		if (currentLine.length >= MAX_WORDS_PER_LINE) {
+			shouldBreakLine = true;
+		}
+
+		if (shouldBreakLine && currentLine.length > 0) {
+			currentVerse.push(currentLine.join(' '));
+			currentLine = [];
+		}
+
+		if (shouldBreakVerse && currentVerse.length > 0) {
+			result.push(currentVerse.join('\n'));
+			result.push(''); // Empty line for verse break
+			currentVerse = [];
+		}
+
+		// Also break verse if we hit max lines
+		if (currentVerse.length >= MAX_LINES_PER_VERSE) {
+			result.push(currentVerse.join('\n'));
+			result.push('');
+			currentVerse = [];
 		}
 	}
 
-	// Add remaining verse
+	// Add remaining words/lines
+	if (currentLine.length > 0) {
+		currentVerse.push(currentLine.join(' '));
+	}
 	if (currentVerse.length > 0) {
 		result.push(currentVerse.join('\n'));
 	}
